@@ -20,14 +20,20 @@ pipeline {
         }
 
         stage('Install Dependencies') {
+            agent any
             steps {
-                sh 'npm install'
+                nodejs(nodeJSInstallationName: 'nodejs-24') {
+                    sh 'npm install'
+                }
             }
         }
 
         stage('Run Tests') {
+            agent any
             steps {
-                sh 'npm test'
+                nodejs(nodeJSInstallationName: 'nodejs-24') {
+                    sh 'npm test'
+                }
             }
             post {
                 always {
@@ -37,6 +43,7 @@ pipeline {
         }
 
         stage('Build Docker Image') {
+            agent any
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
@@ -48,6 +55,7 @@ pipeline {
         }
 
         stage('Deploy') {
+            agent any
             steps {
                 script {
                     // Stop existing container if running
@@ -62,15 +70,21 @@ pipeline {
     }
 
     post {
+        always {
+            node('any') {
+                // Clean up old images to save space
+                sh 'docker system prune -f'
+            }
+        }
         success {
-            echo 'Pipeline completed successfully!'
+            node('any') {
+                echo 'Pipeline completed successfully!'
+            }
         }
         failure {
-            echo 'Pipeline failed! Please check the logs for details.'
-        }
-        always {
-            // Clean up old images to save space
-            sh 'docker system prune -f'
+            node('any') {
+                echo 'Pipeline failed! Please check the logs for details.'
+            }
         }
     }
 } 
