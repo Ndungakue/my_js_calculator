@@ -15,18 +15,23 @@ pipeline {
             }
         }
 
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
                     docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
                 }
-            }
-        }
-
-        stage('Test') {
-            steps {
-                // Add test steps here when you have tests
-                echo 'Tests will be added in future updates'
             }
         }
 
@@ -54,6 +59,8 @@ pipeline {
         always {
             // Clean up old images to save space
             sh 'docker system prune -f'
+            // Generate test reports
+            junit '**/test-results/*.xml'
         }
     }
 } 
