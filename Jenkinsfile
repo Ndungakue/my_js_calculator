@@ -8,6 +8,10 @@ pipeline {
         DOCKER_CREDENTIALS = 'docker-credentials' // Configure these credentials in Jenkins
     }
 
+    tools {
+        nodejs 'nodejs-16'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -25,12 +29,20 @@ pipeline {
             steps {
                 sh 'npm test'
             }
+            post {
+                always {
+                    junit '**/test-results/*.xml'
+                }
+            }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
+                        def customImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                        customImage.push()
+                    }
                 }
             }
         }
@@ -59,8 +71,6 @@ pipeline {
         always {
             // Clean up old images to save space
             sh 'docker system prune -f'
-            // Generate test reports
-            junit '**/test-results/*.xml'
         }
     }
 } 
