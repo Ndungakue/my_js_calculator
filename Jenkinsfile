@@ -4,8 +4,6 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'age-calculator'
         DOCKER_TAG = 'latest'
-        DOCKER_REGISTRY = 'docker.io' // Replace with your registry if different
-        DOCKER_CREDENTIALS = 'docker-credentials' // Configure these credentials in Jenkins
     }
 
     stages {
@@ -19,15 +17,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh '''
-                            if command -v sudo >/dev/null 2>&1; then
-                                # Use sudo if available
-                                sudo docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                            else
-                                # Try without sudo
-                                docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                            fi
-                        '''
+                        bat "docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% ."
                     } catch (Exception e) {
                         echo "Error building Docker image: ${e.message}"
                         error "Docker build failed. Please check permissions and Docker daemon status."
@@ -40,22 +30,12 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh '''
-                            if command -v sudo >/dev/null 2>&1; then
-                                # Stop existing container if running (with sudo)
-                                sudo docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r sudo docker stop
-                                sudo docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r sudo docker rm
-                                
-                                # Run new container
-                                sudo docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            else
-                                # Without sudo
-                                docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r docker stop
-                                docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm
-                                
-                                docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            fi
-                        '''
+                        // Stop and remove existing container if it exists
+                        bat "docker ps -q -f name=%DOCKER_IMAGE% && docker stop %DOCKER_IMAGE% || exit 0"
+                        bat "docker ps -a -q -f name=%DOCKER_IMAGE% && docker rm %DOCKER_IMAGE% || exit 0"
+                        
+                        // Run new container
+                        bat "docker run -d -p 8082:80 --name %DOCKER_IMAGE% %DOCKER_IMAGE%:%DOCKER_TAG%"
                     } catch (Exception e) {
                         echo "Error deploying container: ${e.message}"
                         error "Docker deployment failed. Please check permissions and container status."
@@ -70,13 +50,7 @@ pipeline {
             cleanWs()
             script {
                 try {
-                    sh '''
-                        if command -v sudo >/dev/null 2>&1; then
-                            sudo docker system prune -f
-                        else
-                            docker system prune -f
-                        fi
-                    '''
+                    bat "docker system prune -f"
                 } catch (Exception e) {
                     echo "Warning: Could not clean up Docker resources: ${e.message}"
                 }
