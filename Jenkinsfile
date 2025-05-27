@@ -17,22 +17,50 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
-                '''
+                script {
+                    try {
+                        sh '''
+                            if command -v sudo >/dev/null 2>&1; then
+                                # Use sudo if available
+                                sudo docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                            else
+                                # Try without sudo
+                                docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                            fi
+                        '''
+                    } catch (Exception e) {
+                        echo "Error building Docker image: ${e.message}"
+                        error "Docker build failed. Please check permissions and Docker daemon status."
+                    }
+                }
             }
         }
 
         stage('Deploy') {
             steps {
-                sh '''
-                    # Stop existing container if running
-                    docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r docker stop
-                    docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm
-                    
-                    # Run new container
-                    docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
-                '''
+                script {
+                    try {
+                        sh '''
+                            if command -v sudo >/dev/null 2>&1; then
+                                # Stop existing container if running (with sudo)
+                                sudo docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r sudo docker stop
+                                sudo docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r sudo docker rm
+                                
+                                # Run new container
+                                sudo docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            else
+                                # Without sudo
+                                docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r docker stop
+                                docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm
+                                
+                                docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
+                            fi
+                        '''
+                    } catch (Exception e) {
+                        echo "Error deploying container: ${e.message}"
+                        error "Docker deployment failed. Please check permissions and container status."
+                    }
+                }
             }
         }
     }
@@ -40,11 +68,19 @@ pipeline {
     post {
         always {
             cleanWs()
-            sh '''
-                if command -v docker &> /dev/null; then
-                    docker system prune -f
-                fi
-            '''
+            script {
+                try {
+                    sh '''
+                        if command -v sudo >/dev/null 2>&1; then
+                            sudo docker system prune -f
+                        else
+                            docker system prune -f
+                        fi
+                    '''
+                } catch (Exception e) {
+                    echo "Warning: Could not clean up Docker resources: ${e.message}"
+                }
+            }
         }
         success {
             echo 'Pipeline completed successfully!'
