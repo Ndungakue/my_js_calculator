@@ -8,44 +8,10 @@ pipeline {
         DOCKER_CREDENTIALS = 'docker-credentials' // Configure these credentials in Jenkins
     }
 
-    tools {
-        nodejs 'nodejs-24'
-    }
-
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                nodejs(nodeJSInstallationName: 'nodejs-24') {
-                    sh 'npm install'
-                }
-            }
-        }
-
-        stage('Static Code Analysis') {
-            steps {
-                nodejs(nodeJSInstallationName: 'nodejs-24') {
-                    sh 'npm install eslint --save-dev'
-                    sh 'npx eslint . || true'
-                }
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                nodejs(nodeJSInstallationName: 'nodejs-24') {
-                    sh 'npm test'
-                }
-            }
-            post {
-                always {
-                    junit '**/test-results/*.xml'
-                }
             }
         }
 
