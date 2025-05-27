@@ -20,7 +20,6 @@ pipeline {
         }
 
         stage('Install Dependencies') {
-            agent any
             steps {
                 nodejs(nodeJSInstallationName: 'nodejs-24') {
                     sh 'npm install'
@@ -28,8 +27,16 @@ pipeline {
             }
         }
 
+        stage('Static Code Analysis') {
+            steps {
+                nodejs(nodeJSInstallationName: 'nodejs-24') {
+                    sh 'npm install eslint --save-dev'
+                    sh 'npx eslint . || true'
+                }
+            }
+        }
+
         stage('Run Tests') {
-            agent any
             steps {
                 nodejs(nodeJSInstallationName: 'nodejs-24') {
                     sh 'npm test'
@@ -43,7 +50,6 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            agent any
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
@@ -55,7 +61,6 @@ pipeline {
         }
 
         stage('Deploy') {
-            agent any
             steps {
                 script {
                     // Stop existing container if running
@@ -63,7 +68,7 @@ pipeline {
                     sh 'docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm'
                     
                     // Run new container
-                    sh "docker run -d -p 8080:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    sh "docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}"
                 }
             }
         }
@@ -71,20 +76,14 @@ pipeline {
 
     post {
         always {
-            node('any') {
-                // Clean up old images to save space
-                sh 'docker system prune -f'
-            }
+            cleanWs()
+            sh 'docker system prune -f'
         }
         success {
-            node('any') {
-                echo 'Pipeline completed successfully!'
-            }
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            node('any') {
-                echo 'Pipeline failed! Please check the logs for details.'
-            }
+            echo 'Pipeline failed! Please check the logs for details.'
         }
     }
 } 
