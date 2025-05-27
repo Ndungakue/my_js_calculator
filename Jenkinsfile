@@ -17,25 +17,22 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS) {
-                        def customImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                        customImage.push()
-                    }
-                }
+                sh '''
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                '''
             }
         }
 
         stage('Deploy') {
             steps {
-                script {
-                    // Stop existing container if running
-                    sh 'docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r docker stop'
-                    sh 'docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm'
+                sh '''
+                    # Stop existing container if running
+                    docker ps -q --filter "name=${DOCKER_IMAGE}" | xargs -r docker stop
+                    docker ps -aq --filter "name=${DOCKER_IMAGE}" | xargs -r docker rm
                     
-                    // Run new container
-                    sh "docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                }
+                    # Run new container
+                    docker run -d -p 8081:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}
+                '''
             }
         }
     }
@@ -43,7 +40,11 @@ pipeline {
     post {
         always {
             cleanWs()
-            sh 'docker system prune -f'
+            sh '''
+                if command -v docker &> /dev/null; then
+                    docker system prune -f
+                fi
+            '''
         }
         success {
             echo 'Pipeline completed successfully!'
