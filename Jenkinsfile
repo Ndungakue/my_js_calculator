@@ -17,7 +17,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        bat "docker build -t %DOCKER_IMAGE%:%DOCKER_TAG% ."
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                     } catch (Exception e) {
                         echo "Error building Docker image: ${e.message}"
                         error "Docker build failed. Please check permissions and Docker daemon status."
@@ -31,11 +31,13 @@ pipeline {
                 script {
                     try {
                         // Stop and remove existing container if it exists
-                        bat "docker ps -q -f name=%DOCKER_IMAGE% && docker stop %DOCKER_IMAGE% || exit 0"
-                        bat "docker ps -a -q -f name=%DOCKER_IMAGE% && docker rm %DOCKER_IMAGE% || exit 0"
+                        sh '''
+                            docker ps -q -f name=${DOCKER_IMAGE} && docker stop ${DOCKER_IMAGE} || true
+                            docker ps -a -q -f name=${DOCKER_IMAGE} && docker rm ${DOCKER_IMAGE} || true
+                        '''
                         
                         // Run new container
-                        bat "docker run -d -p 8082:80 --name %DOCKER_IMAGE% %DOCKER_IMAGE%:%DOCKER_TAG%"
+                        sh "docker run -d -p 8082:80 --name ${DOCKER_IMAGE} ${DOCKER_IMAGE}:${DOCKER_TAG}"
                     } catch (Exception e) {
                         echo "Error deploying container: ${e.message}"
                         error "Docker deployment failed. Please check permissions and container status."
@@ -50,7 +52,7 @@ pipeline {
             cleanWs()
             script {
                 try {
-                    bat "docker system prune -f"
+                    sh "docker system prune -f"
                 } catch (Exception e) {
                     echo "Warning: Could not clean up Docker resources: ${e.message}"
                 }
